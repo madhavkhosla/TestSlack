@@ -6,12 +6,25 @@ import (
 	"strconv"
 )
 
+type ResponseElement struct {
+	Title      string   `json:"title"`
+	TitleLink  string   `json:"title_link"`
+	Fields     []Field  `json:"fields"`
+	Color      string   `json:"color"`
+	ThumbUrl   string   `json:"thumb_url"`
+	Actions    []Action `json:"actions"`
+	CallbackId string   `json:"callback_id"`
+}
+
+type SlackResponse struct {
+	ResponseType string            `json:"response_type"`
+	Text         string            `json:"text"`
+	Attachments  []ResponseElement `json:"attachments"`
+}
+
 func GetResponseElement(restaurantNames []RestaurantDetails, lastCount int, cuisineId int) ([]byte, error) {
 	responseElements := make([]ResponseElement, 0)
 	for _, r := range restaurantNames {
-
-		//responseTextFormatted := fmt.Sprintf("Name: %s\n Address: %s\n Menu url: %s\n Cost for 2: %s\n, Rating: %s\n",
-		//	r.Name, r.Address, r.MenuUrl, r.AverageCostForTwo, r.AggregateRating)
 		responseElements = append(responseElements, ResponseElement{
 			Title:     fmt.Sprintf("%s", r.Name),
 			TitleLink: r.MenuUrl,
@@ -40,6 +53,4 @@ func GetResponseElement(restaurantNames []RestaurantDetails, lastCount int, cuis
 		return nil, err
 	}
 	return resp, nil
-	//w.Header().Set("Content-Type", "application/json")
-	//fmt.Fprintf(w, "%s\n", resp)
 }
