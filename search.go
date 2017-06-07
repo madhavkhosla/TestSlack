@@ -17,7 +17,31 @@ type RestaurantDetails struct {
 	ThumbUrl string
 }
 
-func GetRestaurantNamesInCityByCuisine(ctx context.Context, inputCuisineId int, start int) ([]RestaurantDetails, int, error) {
+type Restaurant struct {
+	Name     string `json:"name"`
+	Location struct {
+		Address  string `json:"address"`
+		Locality string `json:"locality"`
+	} `json:"location"`
+	MenuUrl           string `json:"menu_url"`
+	AverageCostForTwo int    `json:"average_cost_for_two"`
+	UserRating        struct {
+		AggregateRating string `json:"aggregate_rating"`
+	} `json:"user_rating"`
+	Thumb string `json:"thumb"`
+}
+
+type SearchResult struct {
+	ResultsFound int    `json:"results_found"`
+	ResultsStart string `json:"results_start"`
+	ResultsShown int    `json:"results_shown"`
+	Restaurants  []struct {
+		Restaurant Restaurant `json:"restaurant"`
+	} `json:"restaurants"`
+}
+
+func GetRestaurantNamesInCityByCuisine(ctx context.Context,
+	inputCuisineId int, start int) ([]RestaurantDetails, int, error) {
 	req, err := http.NewRequest("GET", "https://developers.zomato.com/api/v2.1/search", nil)
 	if err != nil {
 		return nil, 0, err

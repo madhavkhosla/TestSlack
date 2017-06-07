@@ -7,8 +7,8 @@ import (
 
 	"strconv"
 
+	"github.com/madhavkhosla/TestSlack/transactions"
 	"google.golang.org/appengine"
-	"google.golang.org/appengine/urlfetch"
 )
 
 type Value struct {
@@ -49,29 +49,6 @@ type SlackResponse struct {
 	Attachments  []ResponseElement `json:"attachments"`
 }
 
-type Restaurant struct {
-	Name     string `json:"name"`
-	Location struct {
-		Address  string `json:"address"`
-		Locality string `json:"locality"`
-	} `json:"location"`
-	MenuUrl           string `json:"menu_url"`
-	AverageCostForTwo int    `json:"average_cost_for_two"`
-	UserRating        struct {
-		AggregateRating string `json:"aggregate_rating"`
-	} `json:"user_rating"`
-	Thumb string `json:"thumb"`
-}
-
-type SearchResult struct {
-	ResultsFound int    `json:"results_found"`
-	ResultsStart string `json:"results_start"`
-	ResultsShown int    `json:"results_shown"`
-	Restaurants  []struct {
-		Restaurant Restaurant `json:"restaurant"`
-	} `json:"restaurants"`
-}
-
 type CusinesStruct struct {
 	Cuisine struct {
 		CuisineId   int    `json:"cuisine_id"`
@@ -84,7 +61,7 @@ type Collection struct {
 }
 
 func init() {
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", GetRestaurants)
 	http.HandleFunc("/nextfive", GetNextFive)
 	//http.ListenAndServe(":8081", nil)
 }
@@ -153,84 +130,60 @@ func GetNextFive(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func GetRestaurants(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	cusineName := r.FormValue("text")
-	//fmt.Println(cusineName)
-	baseUrl := "https://developers.zomato.com/api/v2.1/"
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/cuisines", baseUrl), nil)
-	if err != nil {
-		fmt.Fprintf(w, err.Error())
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Key", "a881a2c3cbd4e8320634917542051763")
-	query := req.URL.Query()
-	query.Add("city_id", "280")
-	req.URL.RawQuery = query.Encode()
-	client := urlfetch.Client(ctx)
-	//client := &http.Client{}
-	resp, err := client.Do(req)
-	defer resp.Body.Close()
+	inputCusineId, err := transactions.ConvertNameID(cusineName, ctx)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
+	//if inputCusineId != -1 {
+	restaurantNames, lastCount, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId.Value, 0)
+	//restaurantNames, err := GetRestaurantNamesInCityByCuisine(inputCusineId)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+	} else {
 
-	collection := Collection{}
-	err = json.NewDecoder(resp.Body).Decode(&collection)
-	if err != nil {
-		fmt.Fprintf(w, err.Error())
-	}
-	var inputCusineId int = -1
-	for _, c := range collection.Cuisines {
-		if c.Cuisine.CuisineName == cusineName {
-			inputCusineId = c.Cuisine.CuisineId
-			//fmt.Fprintf(w, "%d\n", c.Cuisine.CuisineId)
-		}
-	}
-	if inputCusineId != -1 {
-		restaurantNames, lastCount, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId, 0)
-		//restaurantNames, err := GetRestaurantNamesInCityByCuisine(inputCusineId)
+		//responseElements := make([]ResponseElement, 0)
+		//for _, r := range restaurantNames {
+		//
+		//	//responseTextFormatted := fmt.Sprintf("Name: %s\n Address: %s\n Menu url: %s\n Cost for 2: %s\n, Rating: %s\n",
+		//	//	r.Name, r.Address, r.MenuUrl, r.AverageCostForTwo, r.AggregateRating)
+		//	responseElements = append(responseElements, ResponseElement{
+		//		Title:     fmt.Sprintf("%s", r.Name),
+		//		TitleLink: r.MenuUrl,
+		//		Fields:    r.Fields,
+		//		Color:     "#36a64f",
+		//		ThumbUrl:  r.ThumbUrl,
+		//	})
+		//}
+		//val, _ := json.Marshal(Value{LastCount: strconv.Itoa(lastCount), CuisineId: strconv.Itoa(inputCusineId.Value)})
+		//action := Action{
+		//	Name:  "Get",
+		//	Text:  "Get",
+		//	Type:  "button",
+		//	Value: string(val)}
+		//buttonAttachment := ResponseElement{Title: "Get next 5 restaurants", Actions: []Action{
+		//	action,
+		//}, CallbackId: "zomato_next5", Color: "#36a64f"}
+		//responseElements = append(responseElements, buttonAttachment)
+		//response := SlackResponse{
+		//	ResponseType: "ephemeral",
+		//	Text:         fmt.Sprintf("The Restaurants for %s cuisine are ", cusineName),
+		//	Attachments:  responseElements,
+		//}
+		//resp, err := json.Marshal(response)
+		//if err != nil {
+		//	fmt.Fprintf(w, err.Error())
+		//}
+		resp, err := GetResponseElement(restaurantNames, lastCount, inputCusineId.Value)
 		if err != nil {
 			fmt.Fprintf(w, err.Error())
-		} else {
-
-			responseElements := make([]ResponseElement, 0)
-			for _, r := range restaurantNames {
-
-				//responseTextFormatted := fmt.Sprintf("Name: %s\n Address: %s\n Menu url: %s\n Cost for 2: %s\n, Rating: %s\n",
-				//	r.Name, r.Address, r.MenuUrl, r.AverageCostForTwo, r.AggregateRating)
-				responseElements = append(responseElements, ResponseElement{
-					Title:     fmt.Sprintf("%s", r.Name),
-					TitleLink: r.MenuUrl,
-					Fields:    r.Fields,
-					Color:     "#36a64f",
-					ThumbUrl:  r.ThumbUrl,
-				})
-			}
-			val, _ := json.Marshal(Value{LastCount: strconv.Itoa(lastCount), CuisineId: strconv.Itoa(inputCusineId)})
-			action := Action{
-				Name:  "Get",
-				Text:  "Get",
-				Type:  "button",
-				Value: string(val)}
-			buttonAttachment := ResponseElement{Title: "Get next 5 restaurants", Actions: []Action{
-				action,
-			}, CallbackId: "zomato_next5", Color: "#36a64f"}
-			responseElements = append(responseElements, buttonAttachment)
-			response := SlackResponse{
-				ResponseType: "ephemeral",
-				Text:         fmt.Sprintf("The Restaurants for %s cuisine are ", cusineName),
-				Attachments:  responseElements,
-			}
-			resp, err := json.Marshal(response)
-			if err != nil {
-				fmt.Fprintf(w, err.Error())
-			}
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, "%s\n", resp)
 		}
-	} else {
-		fmt.Fprintf(w, "Cuisine input is invalid")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, "%s\n", resp)
 	}
+	//} else {
+	//	fmt.Fprintf(w, "Cuisine input is invalid")
+	//}
 }
