@@ -63,8 +63,6 @@ func GetNextFive(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "%s\n", resp)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, fmt.Sprintf("Count %s %s", v.CuisineId, v.LastCount))
 	}
 }
 
