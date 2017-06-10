@@ -5,15 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"strconv"
-
 	"google.golang.org/appengine"
 )
-
-type Value struct {
-	LastCount string `json:"last_count"`
-	CuisineId string `json:"cuisine_id"`
-}
 
 type InteractiveMessageRequest struct {
 	Actions []Action
@@ -44,20 +37,21 @@ func GetNextFive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
-	v := Value{}
+	v := RestaurantStat{}
 	err = json.Unmarshal([]byte(interactiveRequestMessage.Actions[0].Value), &v)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
 
 	ctx := appengine.NewContext(r)
-	lastCount, _ := strconv.Atoi(v.LastCount)
-	cusId, _ := strconv.Atoi(v.CuisineId)
-	restaurantNames, lastCount, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, lastCount)
+	lastCount := v.LastCount
+	cusId := v.CuisineId
+
+	restaurantNames, restaurantStat, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, lastCount)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	} else {
-		resp, err := GetResponseElement(restaurantNames, lastCount, cusId)
+		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
 			fmt.Fprintf(w, err.Error())
 		}
@@ -73,11 +67,11 @@ func GetRestaurants(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
-	restaurantNames, lastCount, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId.Value, 0)
+	restaurantNames, restaurantStat, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId.Value, 0)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	} else {
-		resp, err := GetResponseElement(restaurantNames, lastCount, inputCusineId.Value)
+		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
 			fmt.Fprintf(w, err.Error())
 		}

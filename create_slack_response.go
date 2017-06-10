@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 )
 
 type ResponseElement struct {
@@ -22,7 +21,15 @@ type SlackResponse struct {
 	Attachments  []ResponseElement `json:"attachments"`
 }
 
-func GetResponseElement(restaurantNames []RestaurantDetails, lastCount int, cuisineId int) ([]byte, error) {
+func GetActionButton(name string, val []byte) Action {
+	return Action{
+		Name:  name,
+		Text:  name,
+		Type:  "button",
+		Value: string(val)}
+}
+
+func GetResponseElement(restaurantNames []RestaurantDetails, restaurantStat *RestaurantStat) ([]byte, error) {
 	responseElements := make([]ResponseElement, 0)
 	for _, r := range restaurantNames {
 		responseElements = append(responseElements, ResponseElement{
@@ -33,16 +40,31 @@ func GetResponseElement(restaurantNames []RestaurantDetails, lastCount int, cuis
 			ThumbUrl:  r.ThumbUrl,
 		})
 	}
-	val, _ := json.Marshal(Value{LastCount: strconv.Itoa(lastCount), CuisineId: strconv.Itoa(cuisineId)})
-	action := Action{
-		Name:  "Get",
-		Text:  "Get",
-		Type:  "button",
-		Value: string(val)}
-	buttonAttachment := ResponseElement{Title: "Get next 5 restaurants", Actions: []Action{
-		action,
-	}, CallbackId: "zomato_next5", Color: "#36a64f"}
+	valByteArray, err := json.Marshal(restaurantStat)
+	if err != nil {
+		return nil, err
+	}
+	var actionList []Action
+	if restaurantStat.CountRemaining <= 0 {
+		actionPrev := GetActionButton("prev", valByteArray)
+		actionList = append(actionList, actionPrev)
+	} else if restaurantStat.LastCount-5 <= 0 {
+		actionNext := GetActionButton("next", valByteArray)
+		actionList = append(actionList, actionNext)
+	} else {
+		actionNext := GetActionButton("next", valByteArray)
+		actionPrev := GetActionButton("prev", valByteArray)
+		actionList = append(actionList, actionNext, actionPrev)
+	}
+
+	buttonAttachment := ResponseElement{Title: "Get page",
+		Actions: actionList, CallbackId: "zomato_5", Color: "#36a64f"}
 	responseElements = append(responseElements, buttonAttachment)
+
+	return createSlackResponse(responseElements)
+}
+
+func createSlackResponse(responseElements []ResponseElement) ([]byte, error) {
 	response := SlackResponse{
 		ResponseType: "ephemeral",
 		Text:         fmt.Sprintf("The Restaurants for cuisine are "),

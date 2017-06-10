@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -15,6 +14,12 @@ type RestaurantDetails struct {
 	MenuUrl  string
 	Name     string
 	ThumbUrl string
+}
+
+type RestaurantStat struct {
+	LastCount      int `json:"last_count"`
+	CuisineId      int `json:"cuisine_id"`
+	CountRemaining int `json:"count_remaining"`
 }
 
 type Restaurant struct {
@@ -41,10 +46,10 @@ type SearchResult struct {
 }
 
 func GetRestaurantNamesInCityByCuisine(ctx context.Context,
-	inputCuisineId int, start int) ([]RestaurantDetails, int, error) {
+	inputCuisineId int, start int) ([]RestaurantDetails, *RestaurantStat, error) {
 	req, err := http.NewRequest("GET", "https://developers.zomato.com/api/v2.1/search", nil)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Key", "a881a2c3cbd4e8320634917542051763")
@@ -60,23 +65,25 @@ func GetRestaurantNamesInCityByCuisine(ctx context.Context,
 	query.Add("sort", "cost")
 	query.Add("order", "asc")
 	req.URL.RawQuery = query.Encode()
-	fmt.Println(req.URL.String())
+
 	client := urlfetch.Client(ctx)
 	//client := &http.Client{}
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	searchRes := SearchResult{}
 	err = json.NewDecoder(resp.Body).Decode(&searchRes)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	restaurantResultStart, err := strconv.Atoi(searchRes.ResultsStart)
 	lastCount := restaurantResultStart + 5
+	resultRemaining := searchRes.ResultsFound - lastCount
+	val := RestaurantStat{LastCount: lastCount, CuisineId: inputCuisineId, CountRemaining: resultRemaining}
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 	restaurantNameSlice := make([]RestaurantDetails, 0)
 	for _, restaurant := range searchRes.Restaurants {
@@ -92,5 +99,5 @@ func GetRestaurantNamesInCityByCuisine(ctx context.Context,
 			MenuUrl: restaurant.Restaurant.MenuUrl, Name: restaurant.Restaurant.Name,
 			ThumbUrl: restaurant.Restaurant.Thumb})
 	}
-	return restaurantNameSlice, lastCount, nil
+	return restaurantNameSlice, &val, nil
 }
