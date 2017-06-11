@@ -46,10 +46,10 @@ type SearchResult struct {
 }
 
 func GetRestaurantNamesInCityByCuisine(ctx context.Context,
-	inputCuisineId int, start int) ([]RestaurantDetails, *RestaurantStat, error) {
+	inputCuisineId int, start int) ([]RestaurantDetails, int, error) {
 	req, err := http.NewRequest("GET", "https://developers.zomato.com/api/v2.1/search", nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Key", "a881a2c3cbd4e8320634917542051763")
@@ -71,20 +71,20 @@ func GetRestaurantNamesInCityByCuisine(ctx context.Context,
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
 	searchRes := SearchResult{}
 	err = json.NewDecoder(resp.Body).Decode(&searchRes)
 	if err != nil {
-		return nil, nil, err
+		return nil, 0, err
 	}
-	restaurantResultStart, err := strconv.Atoi(searchRes.ResultsStart)
-	lastCount := restaurantResultStart + 5
-	resultRemaining := searchRes.ResultsFound - lastCount
-	val := RestaurantStat{LastCount: lastCount, CuisineId: inputCuisineId, CountRemaining: resultRemaining}
-	if err != nil {
-		return nil, nil, err
-	}
+	//restaurantResultStart, err := strconv.Atoi(searchRes.ResultsStart)
+	//lastCount := restaurantResultStart + 5
+	//resultRemaining := searchRes.ResultsFound - lastCount
+	//val := RestaurantStat{LastCount: lastCount, CuisineId: inputCuisineId, CountRemaining: resultRemaining}
+	//if err != nil {
+	//	return nil, nil, err
+	//}
 	restaurantNameSlice := make([]RestaurantDetails, 0)
 	for _, restaurant := range searchRes.Restaurants {
 		fields := make([]Field, 0)
@@ -99,5 +99,5 @@ func GetRestaurantNamesInCityByCuisine(ctx context.Context,
 			MenuUrl: restaurant.Restaurant.MenuUrl, Name: restaurant.Restaurant.Name,
 			ThumbUrl: restaurant.Restaurant.Thumb})
 	}
-	return restaurantNameSlice, &val, nil
+	return restaurantNameSlice, searchRes.ResultsFound, nil
 }

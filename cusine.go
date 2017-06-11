@@ -27,10 +27,10 @@ type Field struct {
 
 func init() {
 	http.HandleFunc("/", GetRestaurants)
-	http.HandleFunc("/nextfive", GetNextFive)
+	http.HandleFunc("/five", GetFive)
 }
 
-func GetNextFive(w http.ResponseWriter, r *http.Request) {
+func GetFive(w http.ResponseWriter, r *http.Request) {
 	payload := r.FormValue("payload")
 	interactiveRequestMessage := InteractiveMessageRequest{}
 	err := json.Unmarshal([]byte(payload), &interactiveRequestMessage)
@@ -42,15 +42,49 @@ func GetNextFive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
+	if interactiveRequestMessage.Actions[0].Name == "next" {
+		GetNextFive(w, r, &v)
+	} else {
+		GetPrevFive(w, r, &v)
+	}
 
+}
+
+func GetPrevFive(w http.ResponseWriter, r *http.Request, v *RestaurantStat) {
 	ctx := appengine.NewContext(r)
 	lastCount := v.LastCount
 	cusId := v.CuisineId
 
-	restaurantNames, restaurantStat, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, lastCount)
+	start := lastCount - 10
+	lastCount = start + 5
+	restaurantNames, _, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, start)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	} else {
+		resultRemaining := v.CountRemaining + 5
+		restaurantStat := &RestaurantStat{LastCount: lastCount, CuisineId: cusId, CountRemaining: resultRemaining}
+		resp, err := GetResponseElement(restaurantNames, restaurantStat)
+		if err != nil {
+			fmt.Fprintf(w, err.Error())
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, "%s\n", resp)
+	}
+}
+
+func GetNextFive(w http.ResponseWriter, r *http.Request, v *RestaurantStat) {
+	ctx := appengine.NewContext(r)
+	lastCount := v.LastCount
+	cusId := v.CuisineId
+
+	start := lastCount
+	lastCount = start + 5
+	restaurantNames, _, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, start)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+	} else {
+		resultRemaining := v.CountRemaining - 5
+		restaurantStat := &RestaurantStat{LastCount: lastCount, CuisineId: cusId, CountRemaining: resultRemaining}
 		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
 			fmt.Fprintf(w, err.Error())
@@ -67,10 +101,14 @@ func GetRestaurants(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
-	restaurantNames, restaurantStat, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId.Value, 0)
+	start := 0
+	restaurantNames, resultsFound, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId.Value, start)
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	} else {
+		lastCount := start + 5
+		resultRemaining := resultsFound - lastCount
+		restaurantStat := &RestaurantStat{LastCount: lastCount, CuisineId: inputCusineId.Value, CountRemaining: resultRemaining}
 		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
 			fmt.Fprintf(w, err.Error())
