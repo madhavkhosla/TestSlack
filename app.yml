@@ -1,7 +1,7 @@
 runtime: go
 api_version: go1
 handlers:
-- url: /
+- url: /init
   script: _go_app
 - url: /five
   script: _go_app

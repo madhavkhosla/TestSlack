@@ -26,7 +26,8 @@ type Field struct {
 }
 
 func init() {
-	http.HandleFunc("/", GetRestaurants)
+	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.HandleFunc("/init", GetRestaurants)
 	http.HandleFunc("/five", GetFive)
 }
 
