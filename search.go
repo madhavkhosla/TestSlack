@@ -78,13 +78,7 @@ func GetRestaurantNamesInCityByCuisine(ctx context.Context,
 	if err != nil {
 		return nil, 0, err
 	}
-	//restaurantResultStart, err := strconv.Atoi(searchRes.ResultsStart)
-	//lastCount := restaurantResultStart + 5
-	//resultRemaining := searchRes.ResultsFound - lastCount
-	//val := RestaurantStat{LastCount: lastCount, CuisineId: inputCuisineId, CountRemaining: resultRemaining}
-	//if err != nil {
-	//	return nil, nil, err
-	//}
+
 	restaurantNameSlice := make([]RestaurantDetails, 0)
 	for _, restaurant := range searchRes.Restaurants {
 		fields := make([]Field, 0)
