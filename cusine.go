@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"google.golang.org/appengine"
+	"google.golang.org/appengine/urlfetch"
 )
 
 type InteractiveMessageRequest struct {
@@ -27,8 +28,33 @@ type Field struct {
 
 func init() {
 	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.HandleFunc("/oauth", OAuth)
 	http.HandleFunc("/init", GetRestaurants)
 	http.HandleFunc("/five", GetFive)
+}
+
+func OAuth(w http.ResponseWriter, r *http.Request) {
+	ctx := appengine.NewContext(r)
+	code := r.FormValue("code")
+	req, err := http.NewRequest("GET", "https://slack.com/api/oauth.access", nil)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	query := req.URL.Query()
+	query.Add("code", code)
+	query.Add("client_id", "189197742244.189972746583")
+	query.Add("client_secret", "1a86a133e9457e42aa700f2f7c5a665d")
+	req.URL.RawQuery = query.Encode()
+
+	client := urlfetch.Client(ctx)
+	//client := &http.Client{}
+	resp, err := client.Do(req)
+	defer resp.Body.Close()
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+	}
+	fmt.Fprintf(w, "Successfully installed Food Bot NY")
 }
 
 func GetFive(w http.ResponseWriter, r *http.Request) {
