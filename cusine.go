@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"strings"
+
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/urlfetch"
 )
@@ -62,12 +64,14 @@ func GetFive(w http.ResponseWriter, r *http.Request) {
 	interactiveRequestMessage := InteractiveMessageRequest{}
 	err := json.Unmarshal([]byte(payload), &interactiveRequestMessage)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, fmt.Sprintf("Unable to understand user action."))
+		return
 	}
 	v := RestaurantStat{}
 	err = json.Unmarshal([]byte(interactiveRequestMessage.Actions[0].Value), &v)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, fmt.Sprintf("Unable to understand user action."))
+		return
 	}
 	if interactiveRequestMessage.Actions[0].Name == "next" {
 		GetNextFive(w, r, &v)
@@ -86,13 +90,15 @@ func GetPrevFive(w http.ResponseWriter, r *http.Request, v *RestaurantStat) {
 	lastCount = start + 5
 	restaurantNames, _, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, start)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, fmt.Sprintf("Unable to determine cuisine information. Please contact using support details"))
+		return
 	} else {
 		resultRemaining := v.CountRemaining + 5
 		restaurantStat := &RestaurantStat{LastCount: lastCount, CuisineId: cusId, CountRemaining: resultRemaining}
 		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
-			fmt.Fprintf(w, err.Error())
+			fmt.Fprintf(w, fmt.Sprintf("Unable to create a slack response. Please contact using support details"))
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "%s\n", resp)
@@ -108,13 +114,15 @@ func GetNextFive(w http.ResponseWriter, r *http.Request, v *RestaurantStat) {
 	lastCount = start + 5
 	restaurantNames, _, err := GetRestaurantNamesInCityByCuisine(ctx, cusId, start)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, fmt.Sprintf("Unable to determine cuisine information. Please contact using support details"))
+		return
 	} else {
 		resultRemaining := v.CountRemaining - 5
 		restaurantStat := &RestaurantStat{LastCount: lastCount, CuisineId: cusId, CountRemaining: resultRemaining}
 		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
-			fmt.Fprintf(w, err.Error())
+			fmt.Fprintf(w, fmt.Sprintf("Unable to create a slack response. Please contact using support details"))
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "%s\n", resp)
@@ -123,22 +131,39 @@ func GetNextFive(w http.ResponseWriter, r *http.Request, v *RestaurantStat) {
 
 func GetRestaurants(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
-	cusineName := r.FormValue("text")
+	cusineName := strings.Title(r.FormValue("text"))
+	if cusineName == "Help" {
+		response := SlackResponse{
+			ResponseType: "ephemeral",
+			Text:         fmt.Sprintf("The command lists restaurants in NYC.\n Eg: /mycuisine Italian"),
+		}
+		resp, err := json.Marshal(response)
+		if err != nil {
+			fmt.Fprintf(w, fmt.Sprintf("Error rendering help on screen. Please contact using support details"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, "%s\n", resp)
+		return
+	}
 	inputCusineId, err := ConvertNameID(cusineName, ctx)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, fmt.Sprintf("Unable to determine cuisine information. Please contact using support details"))
+		return
 	}
 	start := 0
 	restaurantNames, resultsFound, err := GetRestaurantNamesInCityByCuisine(ctx, inputCusineId.Value, start)
 	if err != nil {
-		fmt.Fprintf(w, err.Error())
+		fmt.Fprintf(w, fmt.Sprintf("Unable to determine cuisine information. Please contact using support details"))
+		return
 	} else {
 		lastCount := start + 5
 		resultRemaining := resultsFound - lastCount
 		restaurantStat := &RestaurantStat{LastCount: lastCount, CuisineId: inputCusineId.Value, CountRemaining: resultRemaining}
 		resp, err := GetResponseElement(restaurantNames, restaurantStat)
 		if err != nil {
-			fmt.Fprintf(w, err.Error())
+			fmt.Fprintf(w, fmt.Sprintf("Unable to create a slack response. Please contact using support details"))
+			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, "%s\n", resp)
