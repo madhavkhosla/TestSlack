@@ -29,7 +29,7 @@ type Field struct {
 }
 
 func init() {
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.Handle("/", http.FileServer(http.Dir("./www")))
 	http.HandleFunc("/oauth", OAuth)
 	http.HandleFunc("/init", GetRestaurants)
 	http.HandleFunc("/five", GetFive)
